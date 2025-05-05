@@ -1,60 +1,26 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+#Abstract models
+class TimeStampedModel(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+        ordering = ['-created_at']
+
+
 # Create your models here.
-class Brand(models.Model):
-    name = models.CharField(max_length=100, verbose_name=_("Brand"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created at"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated at"))
-
-    class Meta:
-        verbose_name = _("Brand")
-        verbose_name_plural = _("Brands")
-        ordering = ['name']
-
-    def __str__(self):
-        return f"Brand: {self.name}" if self.name else "Unnamed Brand"
-
-class Location(models.Model):
-    name = models.CharField(max_length=150, verbose_name=_("Location Name"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created at"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated at"))
-
-    class Meta:
-        verbose_name = _("Location")
-        verbose_name_plural = _("Locations")
-        ordering = ["name"]
-
-    def __str__(self):
-        return f"Location: {self.name}" if self.name else "Unnamed Location"
-
-class Collection(models.Model):
-    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, verbose_name=_("Brand id"))
-    name = models.CharField(max_length=150, verbose_name=_("Collection Name"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created at"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated at"))
-
-    class Meta:
-        verbose_name = _("Collection")
-        verbose_name_plural = _("Collections")
-        ordering = ["name"]
-
-    def __str__(self):
-        if self.brand and self.name:
-            return f"{self.brand.name}: {self.name}"
-        elif self.name:
-            return self.name
-        else:
-            return "Unnamed Collection"
-
-
 class PolishType(models.TextChoices):
-    BASECOAT = "BC", _("Base Coat")
-    NAILPOLISH = "NP", _("Nail Polish")
-    TOPCOAT = "TC", _("Top Coat")
-    TOPPER = "TO", _("Nail Polish Topper")
-    UNICORNSKIN = "US", _("Unicorn Skin")
+    TOPCOAT         = "TC", _("Top Coat")
+    BASECOAT        = "BC", _("Base Coat")
+    NAILPOLISH      = "NP", _("Nail Polish")
+    UNICORNSKIN     = "US", _("Unicorn Skin")
+    TOPPER          = "TO", _("Nail Polish Topper")
 
+    def __str__(self):
+        return f"PolishType: {self.name}"
 
 class Shade(models.TextChoices):
     BLACK  = "black",   _("Black")
@@ -68,8 +34,48 @@ class Shade(models.TextChoices):
     WHITE  = "white",   _("White")
     YELLOW = "yellow",  _("Yellow")
 
+    def __str__(self):
+        return f"Shade: {self.name}"
 
-class Polish(models.Model):
+
+class Brand(TimeStampedModel):
+    name = models.CharField(max_length=100, verbose_name=_("Brand"))
+
+    class Meta:
+        verbose_name = _("Brand")
+        verbose_name_plural = _("Brands")
+        ordering = ['name']
+
+    def __str__(self):
+        return f"Brand: {self.name}"
+
+
+class Location(TimeStampedModel):
+    name = models.CharField(max_length=150, verbose_name=_("Location Name"))
+
+    class Meta:
+        verbose_name = _("Location")
+        verbose_name_plural = _("Locations")
+        ordering = ["name"]
+
+    def __str__(self):
+        return f"Location: {self.name}" if self.name else "Unnamed Location"
+
+
+class Collection(TimeStampedModel):
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE, verbose_name=_("Brand id"))
+    name  = models.CharField(max_length=150, verbose_name=_("Collection Name"))
+
+    class Meta:
+        verbose_name = _("Collection")
+        verbose_name_plural = _("Collections")
+        ordering = ["name"]
+
+    def __str__(self):
+        brand_name = self.brand.name if self.brand else "Unknown Brand"
+        return f"{brand_name}: {self.name or 'Unnamed Collection'}"
+
+class Polish(TimeStampedModel):
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE, verbose_name=_("Brand"))
     location = models.ForeignKey(Location, on_delete=models.CASCADE, verbose_name=_("Location"))
     name = models.CharField(max_length=150, verbose_name=_("Polish Name"))
@@ -95,8 +101,6 @@ class Polish(models.Model):
         blank=True,
         verbose_name=_("Collection name")
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created at"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated at"))
 
     class Meta:
         verbose_name = _("Polish")
@@ -117,11 +121,9 @@ class Polish(models.Model):
             return f"{self.brand.name}: {name_display}"
 
 
-class Worn(models.Model):
+class Worn(TimeStampedModel):
     worn_at = models.DateTimeField(auto_now_add=True, blank=False, verbose_name=_("Date worn"))
     notes = models.CharField(max_length=255, verbose_name=_("Notes"), null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created at"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated at"))
 
     class Meta:
         verbose_name = _("Worn")
@@ -131,23 +133,17 @@ class Worn(models.Model):
     def __str__(self):
         return f"Worn #{self.id} on {self.worn_at.strftime('%Y-%m-%d %H:%M')}"
 
-class WornPhotos(models.Model):
-    worn = models.ForeignKey(Worn, on_delete=models.CASCADE)
+
+class WornPhotos(TimeStampedModel):
+    worn = models.ForeignKey(Worn, on_delete=models.CASCADE, related_name='photos', verbose_name=_("Worn"))
+    photo_type = models.CharField(max_length=50, verbose_name=_("Photo Type"),
+        help_text=_("Example: 'flash on', 'macro', 'sunlight'. Try to reuse existing labels.")
+    )
+    image = models.ImageField(
+        upload_to="photos/",
+        verbose_name=_("Photo")
+    )
     notes = models.CharField(max_length=255, verbose_name=_("Notes"), null=True, blank=True)
-    thumbnail = models.ImageField(
-        'Thumbnail URL',
-        upload_to='photos/thumbnails/',
-        blank=True,
-        verbose_name=_("Thumbnail Image")
-    )
-    photo = models.ImageField(
-        'Photo URL',
-        upload_to='photos/',
-        blank=True,
-        verbose_name=_("Full Image")
-    )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created at"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated at"))
 
     class Meta:
         verbose_name = _("Worn Photo")
@@ -155,10 +151,8 @@ class WornPhotos(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        thumbnail_display = self.thumbnail.url if self.thumbnail else "No thumbnail"
-        photo_display = self.photo.url if self.photo else "No photo"
+        return f"Worn #{self.worn} - {self.photo_type or 'Unknown'}"
 
-        return f"Worn #{self.worn.id} with {thumbnail_display} and {photo_display}"
 
 class WornLayers(models.Model):
     worn = models.ForeignKey(Worn, on_delete=models.CASCADE)
@@ -173,8 +167,10 @@ class WornLayers(models.Model):
     class Meta:
         verbose_name = _("Worn Layers")
         verbose_name_plural = _("Worn Layers")
-        ordering = ['order']
-        unique_together = ('worn', 'order')
+        ordering = ['worn','order']
+        constraints = [
+            models.UniqueConstraint(fields=['worn', 'order'], name='unique_worn_order')
+        ]
 
     def __str__(self):
         return f"{self.worn.id} - Layer {self.order}: {self.polish.name} ({self.get_layer_type_display()})"
