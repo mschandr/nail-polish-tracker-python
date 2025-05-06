@@ -12,6 +12,18 @@ class TimeStampedModel(models.Model):
 
 
 # Create your models here.
+class FingerChoices(models.TextChoices):
+    LEFT_PINKY      = "LP", _("Left Pinky")
+    LEFT_RING       = "LR", _("Left Ring")
+    LEFT_MIDDLE     = "LM", _("Left Middle")
+    LEFT_INDEX      = "LI", _("Left Index")
+    LEFT_THUMB      = "LT", _("Left Thumb")
+    RIGHT_PINKY     = "RP", _("Right Pinky")
+    RIGHT_RING      = "RR", _("Right Ring")
+    RIGHT_MIDDLE    = "RM", _("Right Middle")
+    RIGHT_INDEX     = "RI", _("Right Index")
+    RIGHT_THUMB     = "RT", _("Right Thumb")
+
 class PolishType(models.TextChoices):
     TOPCOAT         = "TC", _("Top Coat")
     BASECOAT        = "BC", _("Base Coat")
@@ -33,6 +45,7 @@ class Shade(models.TextChoices):
     RED    = "red",     _("Red")
     WHITE  = "white",   _("White")
     YELLOW = "yellow",  _("Yellow")
+    NONE   = "none",    _("No Shade / Clear")
 
     def __str__(self):
         return f"Shade: {self.name}"
@@ -79,9 +92,9 @@ class Polish(TimeStampedModel):
     brand = models.ForeignKey(Brand, on_delete=models.CASCADE, verbose_name=_("Brand"))
     location = models.ForeignKey(Location, on_delete=models.CASCADE, verbose_name=_("Location"))
     name = models.CharField(max_length=150, verbose_name=_("Polish Name"))
-    product_url = models.URLField(verbose_name=_("Product URL"), null=True, blank=True)
+    product_url = models.URLField(verbose_name=_("Product URL"), null=True, blank=True, default=None)
     check_url_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Last checked URL at"))
-    is_available = models.BooleanField(default=True, verbose_name=_("Is available online"))
+    is_available = models.BooleanField(null=True, default=None, verbose_name=_("Is available online"))
     shade = models.CharField(
         max_length=20,
         choices=Shade.choices,
@@ -121,21 +134,7 @@ class Polish(TimeStampedModel):
             return f"{self.brand.name}: {name_display}"
 
 
-class Worn(TimeStampedModel):
-    worn_at = models.DateTimeField(auto_now_add=True, blank=False, verbose_name=_("Date worn"))
-    notes = models.CharField(max_length=255, verbose_name=_("Notes"), null=True, blank=True)
-
-    class Meta:
-        verbose_name = _("Worn")
-        verbose_name_plural = _("Worn")
-        ordering = ['-worn_at']
-
-    def __str__(self):
-        return f"Worn #{self.id} on {self.worn_at.strftime('%Y-%m-%d %H:%M')}"
-
-
 class WornPhotos(TimeStampedModel):
-    worn = models.ForeignKey(Worn, on_delete=models.CASCADE, related_name='photos', verbose_name=_("Worn"))
     photo_type = models.CharField(max_length=50, verbose_name=_("Photo Type"),
         help_text=_("Example: 'flash on', 'macro', 'sunlight'. Try to reuse existing labels.")
     )
@@ -143,6 +142,7 @@ class WornPhotos(TimeStampedModel):
         upload_to="photos/",
         verbose_name=_("Photo")
     )
+    worn_at = models.DateTimeField(auto_now_add = True, blank = False, verbose_name = _("Date worn"))
     notes = models.CharField(max_length=255, verbose_name=_("Notes"), null=True, blank=True)
 
     class Meta:
@@ -151,12 +151,19 @@ class WornPhotos(TimeStampedModel):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Worn #{self.worn} - {self.photo_type or 'Unknown'}"
+        return f"Worn #{self.id} - {self.photo_type or 'Unknown'}"
 
 
 class WornLayers(models.Model):
-    worn = models.ForeignKey(Worn, on_delete=models.CASCADE)
+    worn = models.ForeignKey(WornPhotos, on_delete=models.CASCADE)
     order = models.PositiveIntegerField(verbose_name=_("Layer Order"))
+    finger = models.CharField(
+        max_length=2,
+        choices=FingerChoices.choices,
+        null=True,
+        blank=True,
+        verbose_name=_("Finger")
+    )
     layer_type = models.CharField(
         max_length=2,
         choices=PolishType.choices,
